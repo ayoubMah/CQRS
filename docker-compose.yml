@@ -1,0 +1,55 @@
+services:
+  # 1. The Write Database (Primary)
+  postgres-write:
+    image: postgres:16-alpine
+    container_name: postgres-write
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: secretpassword
+      POSTGRES_DB: write_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_write_data:/var/lib/postgresql/data
+
+  # 2. The Read Database (CQRS Read Side)
+  postgres-read:
+    image: postgres:16-alpine
+    container_name: postgres-read
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: secretpassword
+      POSTGRES_DB: read_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - pg_read_data:/var/lib/postgresql/data
+
+  # 3. Kafka (Official Apache Image with KRaft)
+  kafka:
+    image: apache/kafka:latest
+    container_name: kafka-broker
+    ports:
+      - "9092:9092"
+    environment:
+      # KRaft specific configuration
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9093
+      # Single node settings
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      # The official image requires a Cluster ID for KRaft
+      CLUSTER_ID: 'MkU3OEVBNTcwNTJENDM2Qk'
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+
+volumes:
+  pg_write_data:
+  pg_read_data:
+  kafka_data:
