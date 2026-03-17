@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 
 	"github.com/jackc/pgx/v5"
 )
 
-// CustomerStats matches our Materialized View structure
 type CustomerStats struct {
 	CustomerName string  `json:"customer_name"`
 	TotalOrders  int     `json:"total_orders"`
@@ -20,8 +20,11 @@ type CustomerStats struct {
 func main() {
 	ctx := context.Background()
 
-	// Connect to Read DB (port 5433)
-	dbURL := "postgres://admin:secretpassword@localhost:5433/read_db?sslmode=disable"
+	dbURL := os.Getenv("DATABASE_URL")
+	if dbURL == "" {
+		dbURL = "postgres://admin:secretpassword@localhost:5433/read_db?sslmode=disable"
+	}
+
 	conn, err := pgx.Connect(ctx, dbURL)
 	if err != nil {
 		log.Fatalf("Read DB connection failed: %v", err)

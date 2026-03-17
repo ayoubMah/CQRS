@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -24,7 +25,11 @@ func main() {
 	ctx := context.Background()
 
 	// 1. Connect to PostgreSQL (Write DB)
-	dbURL := "postgres://admin:secretpassword@localhost:5432/write_db?sslmode=disable"
+	dbURL := os.Getenv("DATABASE_URL")
+	if dbURL == "" {
+    dbURL = "postgres://admin:secretpassword@localhost:5432/write_db?sslmode=disable"
+	}
+
 	conn, err := pgx.Connect(ctx, dbURL)
 	if err != nil {
 		log.Fatalf("Unable to connect to database: %v\n", err)
@@ -33,11 +38,18 @@ func main() {
 	fmt.Println("Connected to Write Database.")
 
 	// 2. Setup Kafka Writer
-	kafkaWriter := &kafka.Writer{
-		Addr:     kafka.TCP("localhost:9092"),
-		Topic:    "orders",
-		Balancer: &kafka.LeastBytes{},
+
+	kafkaAddr := os.Getenv("KAFKA_BROKER")
+	if kafkaAddr == "" {
+    kafkaAddr = "localhost:9092"
 	}
+
+	kafkaWriter := &kafka.Writer{
+    Addr:     kafka.TCP(kafkaAddr),
+    Topic:    "orders",
+    Balancer: &kafka.LeastBytes{},
+	}
+
 	defer kafkaWriter.Close()
 	fmt.Println("Kafka Writer configured.")
 
