@@ -1,0 +1,101 @@
+---
+# 1. WRITE API
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: write-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: write-api
+  template:
+    metadata:
+      labels:
+        app: write-api
+    spec:
+      containers:
+      - name: write-api
+        image: local/write-api:latest
+        imagePullPolicy: Never  # CRITICAL: Tells K3s to use your imported local image!
+        ports:
+        - containerPort: 8080
+        env:
+        - name: DATABASE_URL
+          value: "postgres://admin:secretpassword@postgres-write:5432/write_db?sslmode=disable"
+        - name: KAFKA_BROKER
+          value: "kafka:9092"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: write-api
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8080
+  selector:
+    app: write-api
+
+---
+# 2. READ API
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: read-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: read-api
+  template:
+    metadata:
+      labels:
+        app: read-api
+    spec:
+      containers:
+      - name: read-api
+        image: local/read-api:latest
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 8081
+        env:
+        - name: DATABASE_URL
+          value: "postgres://admin:secretpassword@postgres-read:5432/read_db?sslmode=disable"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: read-api
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8081
+  selector:
+    app: read-api
+
+---
+# 3. SYNC WORKER (High Availability - 2 Replicas!)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sync-worker
+spec:
+  replicas: 2 # <-- This matches your HA architecture diagram!
+  selector:
+    matchLabels:
+      app: sync-worker
+  template:
+    metadata:
+      labels:
+        app: sync-worker
+    spec:
+      containers:
+      - name: sync-worker
+        image: local/sync-worker:latest
+        imagePullPolicy: Never
+        env:
+        - name: DATABASE_URL
+          value: "postgres://admin:secretpassword@postgres-read:5432/read_db?sslmode=disable"
+        - name: KAFKA_BROKER
+          value: "kafka:9092"

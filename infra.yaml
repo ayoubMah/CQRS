@@ -1,0 +1,127 @@
+---
+# 1. WRITE DATABASE
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres-write
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres-write
+  template:
+    metadata:
+      labels:
+        app: postgres-write
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:16-alpine
+        env:
+        - name: POSTGRES_USER
+          value: "admin"
+        - name: POSTGRES_PASSWORD
+          value: "secretpassword"
+        - name: POSTGRES_DB
+          value: "write_db"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-write
+spec:
+  ports:
+  - port: 5432
+  selector:
+    app: postgres-write
+
+---
+# 2. READ DATABASE
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres-read
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres-read
+  template:
+    metadata:
+      labels:
+        app: postgres-read
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:16-alpine
+        env:
+        - name: POSTGRES_USER
+          value: "admin"
+        - name: POSTGRES_PASSWORD
+          value: "secretpassword"
+        - name: POSTGRES_DB
+          value: "read_db"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-read
+spec:
+  ports:
+  - port: 5432
+  selector:
+    app: postgres-read
+
+---
+# 3. KAFKA BROKER
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kafka
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kafka
+  template:
+    metadata:
+      labels:
+        app: kafka
+    spec:
+      containers:
+      - name: kafka
+        image: apache/kafka:latest
+        env:
+        - name: KAFKA_NODE_ID
+          value: "1"
+        - name: KAFKA_PROCESS_ROLES
+          value: "broker,controller"
+        - name: KAFKA_LISTENERS
+          value: "PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093"
+        # Notice we use the Kubernetes service name 'kafka' here!
+        - name: KAFKA_ADVERTISED_LISTENERS
+          value: "PLAINTEXT://kafka:9092"
+        - name: KAFKA_CONTROLLER_LISTENER_NAMES
+          value: "CONTROLLER"
+        - name: KAFKA_LISTENER_SECURITY_PROTOCOL_MAP
+          value: "CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT"
+        - name: KAFKA_CONTROLLER_QUORUM_VOTERS
+          value: "1@localhost:9093"
+        - name: KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR
+          value: "1"
+        - name: KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR
+          value: "1"
+        - name: KAFKA_TRANSACTION_STATE_LOG_MIN_ISR
+          value: "1"
+        - name: CLUSTER_ID
+          value: "MkU3OEVBNTcwNTJENDM2Qk"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka
+spec:
+  ports:
+  - port: 9092
+  selector:
+    app: kafka
