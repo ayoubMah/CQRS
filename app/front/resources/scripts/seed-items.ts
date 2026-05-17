@@ -1,7 +1,7 @@
 import { MenuItem } from "../types";
 
 
-const API_URL = "http://localhost:8080/items/new";
+const API_URL = "http://localhost:8081/items/new";
 
 const baseItems: MenuItem[] = [
   {

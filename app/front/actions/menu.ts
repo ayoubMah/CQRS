@@ -3,13 +3,13 @@
 import { MenuItem } from "@/resources/types";
 
 
-const BASE_URL = "http://localhost:8080"; // change if needed
+const BASE_URL = "http://localhost:8080";
 
 export async function getMenu(): Promise<MenuItem[]> {
   try {
     const res = await fetch(`${BASE_URL}/items`, {
       method: "GET",
-      cache: "no-store", // important for fresh data
+      cache: "no-store",
     });
 
     if (!res.ok) {
