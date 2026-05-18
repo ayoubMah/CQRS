@@ -86,6 +86,7 @@ services:
       - "8081:8081"
     environment:
       DATABASE_URL: "postgres://admin:secretpassword@postgres-read:5432/read_db?sslmode=disable"
+      KAFKA_BROKER: "kafka-broker:9092"
     depends_on:
       postgres-read:
         condition: service_healthy
