@@ -7,18 +7,28 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/segmentio/kafka-go"
 )
 
-// Order represents the incoming HTTP request and the database record
+// Order mirrors the public.orders table
 type Order struct {
-	ID           string  `json:"id"`
-	CustomerName string  `json:"customer_name"`
-	Amount       float64 `json:"amount"`
-	Status       string  `json:"status"`
+	ID         int    `json:"id"`
+	Date       string `json:"date"`        // "YYYY-MM-DD"
+	Time       string `json:"time"`        // "HH:MM:SS"
+	Quantity   int    `json:"quantity"`
+	Status     string `json:"status"`
+	CustomerID int    `json:"customer_id"`
+	ItemID     int    `json:"item_id"`
+}
+
+// CreateOrderRequest is what the caller sends in the POST body
+type CreateOrderRequest struct {
+	Quantity   int `json:"quantity"`
+	CustomerID int `json:"customer_id"`
+	ItemID     int `json:"item_id"`
 }
 
 func main() {
@@ -27,7 +37,7 @@ func main() {
 	// 1. Connect to PostgreSQL (Write DB)
 	dbURL := os.Getenv("DATABASE_URL")
 	if dbURL == "" {
-    dbURL = "postgres://admin:secretpassword@localhost:5432/write_db?sslmode=disable"
+		dbURL = "postgres://postgres:root@172.31.253.3:5432/food_write?sslmode=disable"
 	}
 
 	conn, err := pgx.Connect(ctx, dbURL)
@@ -38,18 +48,16 @@ func main() {
 	fmt.Println("Connected to Write Database.")
 
 	// 2. Setup Kafka Writer
-
 	kafkaAddr := os.Getenv("KAFKA_BROKER")
 	if kafkaAddr == "" {
-    kafkaAddr = "localhost:9092"
+		kafkaAddr = "localhost:9092"
 	}
 
 	kafkaWriter := &kafka.Writer{
-    Addr:     kafka.TCP(kafkaAddr),
-    Topic:    "orders",
-    Balancer: &kafka.LeastBytes{},
+		Addr:     kafka.TCP(kafkaAddr),
+		Topic:    "orders",
+		Balancer: &kafka.LeastBytes{},
 	}
-
 	defer kafkaWriter.Close()
 	fmt.Println("Kafka Writer configured.")
 
@@ -60,21 +68,34 @@ func main() {
 			return
 		}
 
-		var order Order
-		if err := json.NewDecoder(r.Body).Decode(&order); err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+		var req CreateOrderRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "Invalid request body: "+err.Error(), http.StatusBadRequest)
 			return
 		}
 
-		// Assign a UUID and default status
-		order.ID = uuid.New().String()
-		order.Status = "CREATED"
+		if req.CustomerID == 0 || req.ItemID == 0 || req.Quantity <= 0 {
+			http.Error(w, "customer_id, item_id, and quantity are required", http.StatusBadRequest)
+			return
+		}
 
-		// Step A: Write to PostgreSQL
-		_, err = conn.Exec(ctx,
-			"INSERT INTO orders (id, customer_name, amount, status) VALUES ($1, $2, $3, $4)",
-			order.ID, order.CustomerName, order.Amount, order.Status,
-		)
+		now := time.Now()
+		order := Order{
+			Date:       now.Format("2006-01-02"),
+			Time:       now.Format("15:04:05"),
+			Quantity:   req.Quantity,
+			Status:     "PLACED",
+			CustomerID: req.CustomerID,
+			ItemID:     req.ItemID,
+		}
+
+		// Step A: Write to PostgreSQL — let the DB generate the ID
+		err := conn.QueryRow(ctx,
+			`INSERT INTO orders (date, time, quantity, status, customer_id, item_id)
+			 VALUES ($1, $2, $3, $4, $5, $6)
+			 RETURNING id`,
+			order.Date, order.Time, order.Quantity, order.Status, order.CustomerID, order.ItemID,
+		).Scan(&order.ID)
 		if err != nil {
 			http.Error(w, "Failed to save to DB: "+err.Error(), http.StatusInternalServerError)
 			return
@@ -82,21 +103,20 @@ func main() {
 
 		// Step B: Publish Event to Kafka
 		orderJSON, _ := json.Marshal(order)
-		err = kafkaWriter.WriteMessages(ctx,
+		if err := kafkaWriter.WriteMessages(ctx,
 			kafka.Message{
-				Key:   []byte(order.ID), // Use ID as key to ensure ordering per order
+				Key:   []byte(fmt.Sprintf("%d", order.ID)),
 				Value: orderJSON,
 			},
-		)
-		if err != nil {
-			// In a production app, you'd want the Outbox Pattern here to handle DB success but Kafka failure
-			log.Printf("Failed to write to Kafka: %v", err)
+		); err != nil {
+			// TODO: replace with Outbox Pattern to handle partial failures
+			log.Printf("Warning: order %d saved to DB but failed to publish to Kafka: %v", order.ID, err)
 		}
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)
 		json.NewEncoder(w).Encode(order)
-		log.Printf("Order created and published: %s\n", order.ID)
+		log.Printf("Order created and published: %d\n", order.ID)
 	})
 
 	// 4. Start the server

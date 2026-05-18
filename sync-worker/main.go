@@ -23,7 +23,7 @@ func main() {
 
 	dbURL := os.Getenv("DATABASE_URL")
 	if dbURL == "" {
-		dbURL = "postgres://admin:secretpassword@localhost:5433/read_db?sslmode=disable"
+		dbURL = "postgres://postgres:root@172.31.253.3:5433/foot_read?sslmode=disable"
 	}
 
 	conn, err := pgx.Connect(ctx, dbURL)
@@ -35,7 +35,7 @@ func main() {
 
 	kafkaAddr := os.Getenv("KAFKA_BROKER")
 	if kafkaAddr == "" {
-		kafkaAddr = "localhost:9092"
+		kafkaAddr = "172.31.253.3:9092"
 	}
 
 	reader := kafka.NewReader(kafka.ReaderConfig{
