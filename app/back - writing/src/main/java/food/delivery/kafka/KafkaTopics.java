@@ -17,12 +17,4 @@ public class KafkaTopics {
                 .build();
     }
 
-    @Bean
-    public NewTopic deliveriesTopic() {
-        return TopicBuilder
-                .name("deliveries.events")
-                .partitions(1)
-                .replicas(1)
-                .build();
-    }
 }
