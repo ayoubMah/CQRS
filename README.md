@@ -47,4 +47,4 @@ docker compose up -d
 - [x] Write API
 - [x] Sync Worker
 - [x] Read API
-- [ ] Kubernetes deployment
+- [x] Kubernetes deployment
