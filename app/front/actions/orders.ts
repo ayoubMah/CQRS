@@ -2,11 +2,12 @@
 
 import { Order } from "@/resources/types";
 
-const API_URL = "http://localhost:8080/orders";
+const READ_API_URL = "http://localhost:8080/orders";
+const WRITE_API_URL = "http://localhost:8081/orders";
 
 export async function createOrder(order: Order) {
   try {
-    const response = await fetch(`${API_URL}/new`, {
+    const response = await fetch(`${WRITE_API_URL}/new`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -29,7 +30,7 @@ export async function createOrder(order: Order) {
 }
 
 export async function getOrder(orderId: number): Promise<Order> {
-  const res = await fetch(`http://localhost:8080/orders/${orderId}`, {
+  const res = await fetch(`${READ_API_URL}/${orderId}`, {
     cache: "no-store",
   });
 
@@ -41,7 +42,7 @@ export async function getOrder(orderId: number): Promise<Order> {
 }
 
 export async function getAllOrders(): Promise<Order[]> {
-  const res = await fetch(`http://localhost:8080/orders`, {
+  const res = await fetch(`${READ_API_URL}/orders`, {
     cache: "no-store",
   });
 
@@ -53,7 +54,7 @@ export async function getAllOrders(): Promise<Order[]> {
 }
 
 export async function prepareOrder(id: number): Promise<Order> {
-  const response = await fetch(`${API_URL}/${id}/prepare`, {
+  const response = await fetch(`${WRITE_API_URL}/${id}/prepare`, {
     method: "PATCH",
   });
 
@@ -65,7 +66,7 @@ export async function prepareOrder(id: number): Promise<Order> {
 }
 
 export async function readyOrder(id: number): Promise<Order> {
-  const response = await fetch(`${API_URL}/${id}/ready`, {
+  const response = await fetch(`${WRITE_API_URL}/${id}/ready`, {
     method: "PATCH",
   });
 
@@ -77,7 +78,7 @@ export async function readyOrder(id: number): Promise<Order> {
 }
 
 export async function pickUpOrder(id: number): Promise<Order> {
-  const response = await fetch(`${API_URL}/${id}/pickup`, {
+  const response = await fetch(`${WRITE_API_URL}/${id}/pickup`, {
     method: "PATCH",
   });
 
@@ -89,7 +90,7 @@ export async function pickUpOrder(id: number): Promise<Order> {
 }
 
 export async function cancelOrder(id: number): Promise<Order> {
-  const response = await fetch(`${API_URL}/${id}/cancel`, {
+  const response = await fetch(`${WRITE_API_URL}/${id}/cancel`, {
     method: "PATCH",
   });
 
@@ -103,7 +104,7 @@ export async function getCurrentCustomerOrder(
   customerId: number
 ): Promise<Order> {
   const response = await fetch(
-    `http://localhost:8080/orders/customer/${customerId}/current`,
+    `${READ_API_URL}/${customerId}/current`,
     {
       cache: "no-store",
     }
